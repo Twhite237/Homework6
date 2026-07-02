@@ -2,5 +2,7 @@
 title: "Homework 6"
 author: "Bryan Sandor, Merilyn Thomas, and Tyler White"
 format: html
+editor_options: 
+  chunk_output_type: console
 ---
 
