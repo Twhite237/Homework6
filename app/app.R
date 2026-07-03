@@ -14,28 +14,28 @@ ui <- fluidPage(
       selectizeInput(
         inputId = "corr_x",
         label = "x Variable",
-        choices = list("Total person's income" = 1,
-                       "Water cost" = 2,
-                       "Electricity cost" = 3,
-                       "Gas cost" = 4,
-                       "Gross rent as a percentage of income" = 5,
-                       "Property taxes" = 6,
-                       "Property value" = 7,
-                       "Usual hours worked per week" = 8),
-        selected = 1
+        choices = list("Total person's income" = "PINCP",
+                       "Water cost" = "WATP",
+                       "Electricity cost" = "ELEP",
+                       "Gas cost" = "GASP",
+                       "Gross rent as a percentage of income" = "GRPIP",
+                       "Property taxes" = "TAXAMT",
+                       "Property value" = "VALP",
+                       "Usual hours worked per week" = "WKHP"),
+        selected = "PINCP"
       ),
       selectizeInput(
         inputId = "corr_y",
         label = "y Variable",
-        choices = list("Travel time to work" = 1,
-                       "Water cost" = 2,
-                       "Electricity cost" = 3,
-                       "Gas cost" = 4,
-                       "Gross rent as a percentage of income" = 5,
-                       "Property taxes" = 6,
-                       "Property value" = 7,
-                       "Usual hours worked per week" = 8),
-        selected = 1
+        choices = list("Travel time to work" = "JWMNP",
+                       "Water cost" = "WATP",
+                       "Electricity cost" = "ELEP",
+                       "Gas cost" = "GASP",
+                       "Gross rent as a percentage of income" = "GRPIP",
+                       "Property taxes" = "TAXAMT",
+                       "Property value" = "VALP",
+                       "Usual hours worked per week" = "WKHP"),
+        selected = "JWMNP"
       ),
 #      "Put your selectize inputs here!",
 #      "Give them internal IDs of corr_x and corr_y.",
@@ -45,29 +45,36 @@ ui <- fluidPage(
         inputId = "hhl_corr", 
         label = "Household Language", 
         choices = list( 
-          "All" = 1,
-          "English only" = 2,
-          "Spanish" = 3,
-          "Other" = 4
+          "All" = c("0", "1", "2", "3", "4", "5"),
+          "English only" = "1",
+          "Spanish" = "2",
+          "Other" = "5"
         )
       ),
       radioButtons( 
-        inputId = "fs_corr", 
+        inputId = "fs_corr", # used values from FSvals in helpers.R
         label = "SNAP Recipient", 
         choices = list( 
-          "All" = 1,
-          "Yes" = 2,
-          "No" = 3
+          "All" = c("0", "1", "2"),
+          "Yes" = "1",
+          "No" = "2"
         )
       ),
       radioButtons( 
         inputId = "schl_corr", 
         label = "Educational Attainment", 
         choices = list(
-          "All" = 1,
-          "High School not Completed" = 2,
-          "High School or GED" = 3,
-          "College Degree" = 4
+          "All" = c("0", "01", "02", "03", "04",
+                    "05", "06", "07", "08", "09",
+                    "10", "11", "12", "13", "14",
+                    "15", "16", "17", "18", "19",
+                    "20", "21", "22", "23", "24"),
+          "High School not Completed" = c("0", "01", "02", "03", "04",
+                                          "05", "06", "07", "08", "09",
+                                          "10", "11", "12", "13", "14",
+                                          "15"),
+          "High School or GED" = c("16", "17", "18", "19"),
+          "College Degree" = c("20", "21", "22", "23", "24")
         )
       ),
 #      "Place your radio buttons here! One radio button for each variable we may subset on. Set the internal IDs for these to be hhl_corr, fs_corr, and schl_corr.",
@@ -147,68 +154,68 @@ server <- function(input, output, session) {
 
 
 
-    # ##############################################################
-    # #Uncomment the next large block of code to go in an
-    # #observeEvent() to look for the action button (corr_sample)
-    # #Note you can highlight and bulk comment/uncomment (ctrl+shift+c or similar on mac)
-    # 
-    #   if(input$hhl_corr == "all"){
-    #     hhl_sub <- HHLvals
-    #   } else if(input$hhl_corr == "english"){
-    #     hhl_sub <- HHLvals["1"]
-    #   } else if(input$hhl_corr == "spanish"){
-    #     hhl_sub <- HHLvals["2"]
-    #   } else {
-    #     hhl_sub <- HHLvals[c("0", "3", "4", "5")]
-    #   }
-    # 
-    #   if(input$fs_corr == "all"){
-    #     fs_sub <- FSvals
-    #   } else if(input$fs_corr == "yes"){
-    #     fs_sub <- FSvals["1"]
-    #   } else {
-    #     fs_sub <- FSvals["2"]
-    #   }
-    # 
-    #   if(input$schl_corr == "all"){
-    #     schl_sub <- SCHLvals
-    #   } else if(input$schl_corr == "no_hs"){
-    #     schl_sub <- SCHLvals[c("0", "01", "02", "03", "04",
-    #                            "05", "06", "07", "08", "09",
-    #                            "10", "11", "12", "13", "14", "15")]
-    #   } else if(input$schl_corr == "hs"){
-    #     schl_sub <- SCHLvals[as.character(16:19)]
-    #   } else {
-    #     schl_sub <- SCHLvals[as.character(20:24)]
-    #   }
-    # 
-    #   corr_vars <- c(input$corr_x, input$corr_y)
-    # 
-    #   subsetted_data <- my_sample |>
-    #     filter(#cat vars first
-    #       HHLfac %in% hhl_sub,
-    #       FSfac %in% fs_sub,
-    #       SCHLfac %in% schl_sub
-    #     ) %>% #make sure numeric variables are in appropriate range, must use %>% here for {} to work
-    #     {if("WKHP" %in% corr_vars) filter(., WKHP > 0) else .} %>%
-    #     {if("VALP" %in% corr_vars) filter(., !is.na(VALP)) else .} %>%
-    #     {if("TAXAMT" %in% corr_vars) filter(., !is.na(TAXAMT)) else .} %>%
-    #     {if("GRPIP" %in% corr_vars) filter(., GRPIP > 0) else .} %>%
-    #     {if("GASP" %in% corr_vars) filter(., GASP > 0) else .} %>%
-    #     {if("ELEP" %in% corr_vars) filter(., ELEP > 0) else .} %>%
-    #     {if("WATP" %in% corr_vars) filter(., WATP > 0) else .} %>%
-    #     {if("PINCP" %in% corr_vars) filter(., AGEP > 18) else .} %>%
-    #     {if("JWMNP" %in% corr_vars) filter(., !is.na(JWMNP)) else .}
-    # 
-    #   index <- sample(1:nrow(subsetted_data),
-    #                   size = input$corr_n,
-    #                   replace = TRUE,
-    #                   prob = subsetted_data$PWGTP/sum(subsetted_data$PWGTP))
-    #   #***You now need to update the sample_corr reactive value object***
-    #   #the corr_data argument should be updated to be the subsetted_data[index,]
-    #   #the corr_truth argument should be updated to be the correlation between
-    #   #the two variables selected. This can be found with this code:
-    #   #cor(sample_corr$corr_data |> select(corr_vars))[1,2]
+    ##############################################################
+    #Uncomment the next large block of code to go in an
+    #observeEvent() to look for the action button (corr_sample)
+    #Note you can highlight and bulk comment/uncomment (ctrl+shift+c or similar on mac)
+
+      if(input$hhl_corr == "all"){
+        hhl_sub <- HHLvals
+      } else if(input$hhl_corr == "english"){
+        hhl_sub <- HHLvals["1"]
+      } else if(input$hhl_corr == "spanish"){
+        hhl_sub <- HHLvals["2"]
+      } else {
+        hhl_sub <- HHLvals[c("0", "3", "4", "5")]
+      }
+
+      if(input$fs_corr == "all"){
+        fs_sub <- FSvals
+      } else if(input$fs_corr == "yes"){
+        fs_sub <- FSvals["1"]
+      } else {
+        fs_sub <- FSvals["2"]
+      }
+
+      if(input$schl_corr == "all"){
+        schl_sub <- SCHLvals
+      } else if(input$schl_corr == "no_hs"){
+        schl_sub <- SCHLvals[c("0", "01", "02", "03", "04",
+                               "05", "06", "07", "08", "09",
+                               "10", "11", "12", "13", "14", "15")]
+      } else if(input$schl_corr == "hs"){
+        schl_sub <- SCHLvals[as.character(16:19)]
+      } else {
+        schl_sub <- SCHLvals[as.character(20:24)]
+      }
+
+      corr_vars <- c(input$corr_x, input$corr_y)
+
+      subsetted_data <- my_sample |>
+        filter(#cat vars first
+          HHLfac %in% hhl_sub,
+          FSfac %in% fs_sub,
+          SCHLfac %in% schl_sub
+        ) %>% #make sure numeric variables are in appropriate range, must use %>% here for {} to work
+        {if("WKHP" %in% corr_vars) filter(., WKHP > 0) else .} %>%
+        {if("VALP" %in% corr_vars) filter(., !is.na(VALP)) else .} %>%
+        {if("TAXAMT" %in% corr_vars) filter(., !is.na(TAXAMT)) else .} %>%
+        {if("GRPIP" %in% corr_vars) filter(., GRPIP > 0) else .} %>%
+        {if("GASP" %in% corr_vars) filter(., GASP > 0) else .} %>%
+        {if("ELEP" %in% corr_vars) filter(., ELEP > 0) else .} %>%
+        {if("WATP" %in% corr_vars) filter(., WATP > 0) else .} %>%
+        {if("PINCP" %in% corr_vars) filter(., AGEP > 18) else .} %>%
+        {if("JWMNP" %in% corr_vars) filter(., !is.na(JWMNP)) else .}
+
+      index <- sample(1:nrow(subsetted_data),
+                      size = input$corr_n,
+                      replace = TRUE,
+                      prob = subsetted_data$PWGTP/sum(subsetted_data$PWGTP))
+      #***You now need to update the sample_corr reactive value object***
+      #the corr_data argument should be updated to be the subsetted_data[index,]
+      #the corr_truth argument should be updated to be the correlation between
+      #the two variables selected. This can be found with this code:
+      #cor(sample_corr$corr_data |> select(corr_vars))[1,2]
     ####################################################################
 
 
