@@ -19,19 +19,19 @@ ui <- fluidPage(
       h2("Chose a Subset of the Data"),
       radioButtons( 
         "hhl_corr", label = "Household Language", 
-        choices = c("All","English Only", "Spanish", "Other"),
-        choiceValues = c("all","english", "spanish", "other"),
-        selected = "English Only"),
+        choices = c("All" = "all","English Only" = "english", "Spanish" = "spanish", "Other" = "other"),
+        #choiceValues = c("all","english", "spanish", "other"),
+        selected = "english"),
       radioButtons( 
         "fs_corr", label = "SNAP Recipient", 
-        choices = c("Yes", "No", "All"),
-        choiceValues = c("yes", "no", "all"),
-        selected = "All"),
+        choices = c("Yes" = "yes", "No" = "no", "All" = "all"),
+        #sample_corr$corr_data[index(),]choiceValues = c("yes", "no", "all"),
+        selected = "all"),
       radioButtons( 
         "schl_corr", label = "Educational Attainment", 
-        choices = c("All", "High School not Completed", "High School or GED", "College Degree"),
-        choiceValues = c("all" , "no_hs" , "hs", "advanced" ),
-        selected = "All"),
+        choices = c("All" = "all", "High School not Completed" = "no_hs", "High School or GED" ="hs", "College Degree" = "advanced"),
+        #choiceValues = c("all" , "no_hs" , "hs", "advanced" ),
+        selected = "all"),
       #"Place your radio buttons here! One radio button for each variable we may subset on. Set the internal IDs for these to be hhl_corr, fs_corr, and schl_corr.",
       #"Notice that you can use choiceNames and choiceValues to have different values show vs the values you use internally for comparisons. There are 'internal' values already used in the server file - the first large commented section - so you should set the internal values to match those!",
       h2("Select a Sample Size"),
@@ -40,7 +40,7 @@ ui <- fluidPage(
       actionButton("corr_sample","Get a Sample!")
     ),
     mainPanel(
-      "Add a plotOutput here for the scatter plot!",
+      plotOutput(outputId = "plot"),
       conditionalPanel("input.corr_sample", #only show if a sample has been taken
                        h2("Guess the correlation!"),
                        column(6, 
@@ -102,7 +102,7 @@ server <- function(input, output, session) {
     #this object should have two elements, corr_data and corr_truth
     #both should be set to null to start with!
     
-    sample_corr <- reactiveValues(corr_data = NA, corr_data = NA)
+    sample_corr <- reactiveValues(corr_data = NULL, corr_truth = NULL)
 
 
 
@@ -110,9 +110,7 @@ server <- function(input, output, session) {
     # #Uncomment the next large block of code to go in an
     # #observeEvent() to look for the action button (corr_sample)
     # #Note you can highlight and bulk comment/uncomment (ctrl+shift+c or similar on mac)
-      
-    hhl_sub<- reactive({
-      
+    observeEvent(input$corr_sample,{
       if(input$hhl_corr == "all"){
         hhl_sub <- HHLvals
       } 
@@ -125,11 +123,7 @@ server <- function(input, output, session) {
       else {
         hhl_sub <- HHLvals[c("0", "3", "4", "5")]
       }
-      hhl_sub
-    })
-    
-      #
-    fs_sub = reactive({
+      
       if(input$fs_corr == "all"){
         fs_sub <- FSvals
       } else if(input$fs_corr == "yes"){
@@ -137,9 +131,7 @@ server <- function(input, output, session) {
       } else {
         fs_sub <- FSvals["2"]
       }
-    })
       
-    schl_sub = reactive({
       if(input$schl_corr == "all"){
         schl_sub <- SCHLvals
       } else if(input$schl_corr == "no_hs"){
@@ -151,47 +143,42 @@ server <- function(input, output, session) {
       } else {
         schl_sub <- SCHLvals[as.character(20:24)]
       }
-    })
       
       #
-    corr_vars_reac <- reactive({
-      corr_vars <- c(input$corr_x, input$corr_y)
-    })  
-    
-    #hhl_sub = hhl_sub_reac()
-
-      subsetted_data <- reactive({
-        my_sample |>
-          filter(#cat vars first
-            "HHLfac" %in% hhl_sub(),
-            "FSfac" %in% fs_sub(),
-            "SCHLfac" %in% schl_sub()
-          ) %>% #make sure numeric variables are in appropriate range, must use %>% here for {} to work
-          {if("WKHP" %in% corr_vars) filter(., WKHP > 0) else .} %>%
-          {if("VALP" %in% corr_vars) filter(., !is.na(VALP)) else .} %>%
-          {if("TAXAMT" %in% corr_vars) filter(., !is.na(TAXAMT)) else .} %>%
-          {if("GRPIP" %in% corr_vars) filter(., GRPIP > 0) else .} %>%
-          {if("GASP" %in% corr_vars) filter(., GASP > 0) else .} %>%
-          {if("ELEP" %in% corr_vars) filter(., ELEP > 0) else .} %>%
-          {if("WATP" %in% corr_vars) filter(., WATP > 0) else .} %>%
-          {if("PINCP" %in% corr_vars) filter(., AGEP > 18) else .} %>%
-          {if("JWMNP" %in% corr_vars) filter(., !is.na(JWMNP)) else .}
-        
-      })
-      # 
-      index <- reactive({
-        sample(1:nrow(subsetted_data),
-               size = input$corr_n,
-               replace = TRUE,
-               prob = subsetted_data$PWGTP/sum(subsetted_data$PWGTP))
-      })
+      corr_vars = c(input$corr_x, input$corr_y)
       
+      subsetted_data <- my_sample |>
+        filter(#cat vars first
+          HHLfac %in% hhl_sub,
+          FSfac %in% fs_sub,
+          SCHLfac %in% schl_sub
+        ) %>% #make sure numeric variables are in appropriate range, must use %>% here for {} to work
+        {if("WKHP" %in% corr_vars) filter(., WKHP > 0) else .} %>%
+        {if("VALP" %in% corr_vars) filter(., !is.na(VALP)) else .} %>%
+        {if("TAXAMT" %in% corr_vars) filter(., !is.na(TAXAMT)) else .} %>%
+        {if("GRPIP" %in% corr_vars) filter(., GRPIP > 0) else .} %>%
+        {if("GASP" %in% corr_vars) filter(., GASP > 0) else .} %>%
+        {if("ELEP" %in% corr_vars) filter(., ELEP > 0) else .} %>%
+        {if("WATP" %in% corr_vars) filter(., WATP > 0) else .} %>%
+        {if("PINCP" %in% corr_vars) filter(., AGEP > 18) else .} %>%
+        {if("JWMNP" %in% corr_vars) filter(., !is.na(JWMNP)) else .}
+      
+      index = sample(1:nrow(subsetted_data),
+                            size = input$corr_n,
+                            replace = TRUE,
+                            prob = subsetted_data$PWGTP/sum(subsetted_data$PWGTP))
       
       #*You now need to update the sample_corr reactive value object***
       #the corr_data argument should be updated to be the subsetted_data[index,]
       #the corr_truth argument should be updated to be the correlation between
       #the two variables selected. This can be found with this code:
-      #cor(sample_corr$corr_data |> select(corr_vars))[1,2]
+      sample_corr$corr_data = subsetted_data
+      sample_corr$corr_truth = cor(sample_corr$corr_data |> select(corr_vars))[1,2]
+      
+    
+      
+    
+      
     ###################################################################
 
 
@@ -203,8 +190,17 @@ server <- function(input, output, session) {
     #   validate(
     #     need(!is.null(sample_corr$corr_data), "Please select your variables, subset, and click the 'Get a Sample!' button.")
     #   )
-    #   ggplot(sample_corr$corr_data, aes_string(x = isolate(input$corr_x), y = isolate(input$corr_y))) +
-    #     geom_point()
+    #   
+      
+    })
+    output$plot = renderPlot({
+      validate(need(!is.null(sample_corr$corr_data), "Please select your variables, subset, and click the 'Get a Sample!' button."))
+      ggplot(sample_corr$corr_data, aes_string(x = isolate(input$corr_x), y = isolate(input$corr_y))) +
+             geom_point()
+      })
+      
+      
+    
 
 
     #This code does the correlation guessing game! Nothign to change here
