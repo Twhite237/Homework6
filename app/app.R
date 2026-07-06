@@ -14,28 +14,14 @@ ui <- fluidPage(
       selectizeInput(
         inputId = "corr_x",
         label = "x Variable",
-        choices = list("Total person's income" = "PINCP",
-                       "Water cost" = "WATP",
-                       "Electricity cost" = "ELEP",
-                       "Gas cost" = "GASP",
-                       "Gross rent as a percentage of income" = "GRPIP",
-                       "Property taxes" = "TAXAMT",
-                       "Property value" = "VALP",
-                       "Usual hours worked per week" = "WKHP"),
-        selected = "PINCP"
+        choices = c(numeric_vars),
+        selected = numeric_vars[1]
       ),
       selectizeInput(
         inputId = "corr_y",
         label = "y Variable",
-        choices = list("Travel time to work" = "JWMNP",
-                       "Water cost" = "WATP",
-                       "Electricity cost" = "ELEP",
-                       "Gas cost" = "GASP",
-                       "Gross rent as a percentage of income" = "GRPIP",
-                       "Property taxes" = "TAXAMT",
-                       "Property value" = "VALP",
-                       "Usual hours worked per week" = "WKHP"),
-        selected = "JWMNP"
+        choices = c(numeric_vars),
+        selected = numeric_vars[2]
       ),
 #      "Put your selectize inputs here!",
 #      "Give them internal IDs of corr_x and corr_y.",
@@ -44,37 +30,30 @@ ui <- fluidPage(
       radioButtons( 
         inputId = "hhl_corr", 
         label = "Household Language", 
-        choices = list( 
-          "All" = c("0", "1", "2", "3", "4", "5"),
-          "English only" = "1",
-          "Spanish" = "2",
-          "Other" = "5"
+        choices = c( 
+          "All" = "all",
+          "English only" = "english",
+          "Spanish" = "spanish",
+          "Other" = "other"
         )
       ),
       radioButtons( 
         inputId = "fs_corr", # used values from FSvals in helpers.R
         label = "SNAP Recipient", 
-        choices = list( 
-          "All" = c("0", "1", "2"),
-          "Yes" = "1",
-          "No" = "2"
+        choices = c( 
+          "All" = "all",
+          "Yes" = "yes",
+          "No" = "no"
         )
       ),
       radioButtons( 
         inputId = "schl_corr", 
         label = "Educational Attainment", 
-        choices = list(
-          "All" = c("0", "01", "02", "03", "04",
-                    "05", "06", "07", "08", "09",
-                    "10", "11", "12", "13", "14",
-                    "15", "16", "17", "18", "19",
-                    "20", "21", "22", "23", "24"),
-          "High School not Completed" = c("0", "01", "02", "03", "04",
-                                          "05", "06", "07", "08", "09",
-                                          "10", "11", "12", "13", "14",
-                                          "15"),
-          "High School or GED" = c("16", "17", "18", "19"),
-          "College Degree" = c("20", "21", "22", "23", "24")
+        choices = c(
+          "All" = "all",
+          "High School not Completed" = "no_hs",
+          "High School or GED" = "hs",
+          "College Degree" = "advanced"
         )
       ),
 #      "Place your radio buttons here! One radio button for each variable we may subset on. Set the internal IDs for these to be hhl_corr, fs_corr, and schl_corr.",
@@ -91,6 +70,7 @@ ui <- fluidPage(
       actionButton("corr_sample","Get a Sample!")
     ),
     mainPanel(
+      outputId = "corr_plot",
       "Please select your variables, subset, and click the 'Get a Sample!' button.",
       conditionalPanel("input.corr_sample", #only show if a sample has been taken
                        h2("Guess the correlation!"),
@@ -152,13 +132,15 @@ server <- function(input, output, session) {
     #this object should have two elements, corr_data and corr_truth
     #both should be set to null to start with!
 
-
+    sample_corr <- reactiveValues(corr_data = NULL,
+                                  corr_truth = NULL)
 
     ##############################################################
     #Uncomment the next large block of code to go in an
     #observeEvent() to look for the action button (corr_sample)
     #Note you can highlight and bulk comment/uncomment (ctrl+shift+c or similar on mac)
 
+    observeEvent(input$corr_sample, {
       if(input$hhl_corr == "all"){
         hhl_sub <- HHLvals
       } else if(input$hhl_corr == "english"){
@@ -197,7 +179,7 @@ server <- function(input, output, session) {
           FSfac %in% fs_sub,
           SCHLfac %in% schl_sub
         ) %>% #make sure numeric variables are in appropriate range, must use %>% here for {} to work
-        {if("WKHP" %in% corr_vars) filter(., WKHP > 0) else .} %>%
+        {if("WKHP" %in% corr_vars) filter(., WKHP > 0) else .} %>% 
         {if("VALP" %in% corr_vars) filter(., !is.na(VALP)) else .} %>%
         {if("TAXAMT" %in% corr_vars) filter(., !is.na(TAXAMT)) else .} %>%
         {if("GRPIP" %in% corr_vars) filter(., GRPIP > 0) else .} %>%
@@ -211,27 +193,33 @@ server <- function(input, output, session) {
                       size = input$corr_n,
                       replace = TRUE,
                       prob = subsetted_data$PWGTP/sum(subsetted_data$PWGTP))
-      #***You now need to update the sample_corr reactive value object***
+      # ***You now need to update the sample_corr reactive value object***
       #the corr_data argument should be updated to be the subsetted_data[index,]
+      sample_corr$corr_data <- subsetted_data
+      
       #the corr_truth argument should be updated to be the correlation between
       #the two variables selected. This can be found with this code:
-      #cor(sample_corr$corr_data |> select(corr_vars))[1,2]
+
+      sample_corr$corr_truth <- cor(sample_corr$corr_data |> select(corr_vars))[1,2]
     ####################################################################
+})
 
+    #Create a renderPlot() object to output a scatter plot
+    #Use the code below to validate that data exists, (this goes in the renderPlot and you'll need
+    #to install the shinyalert package if you don't have it) and then create the appropriate
+    #scatter plot
+      output$corr_plot <- renderPlot({
+      validate(
+        need(!is.null(sample_corr$corr_data), "Please select your variables, subset, and click the 'Get a Sample!' button.")
+      )
 
+      ggplot(data = sample_corr$corr_data,
+             mapping = aes_string(x = isolate(input$corr_x),
+                                  y = isolate(input$corr_y))) +
+        geom_point()
+      })
 
-    # #Create a renderPlot() object to output a scatter plot
-    # #Use the code below to validate that data exists, (this goes in the renderPlot and you'll need 
-    # #to install the shinyalert package if you don't have it) and then create the appropriate
-    # #scatter plot
-    #   validate(
-    #     need(!is.null(sample_corr$corr_data), "Please select your variables, subset, and click the 'Get a Sample!' button.")
-    #   )
-    #   ggplot(sample_corr$corr_data, aes_string(x = isolate(input$corr_x), y = isolate(input$corr_y))) +
-    #     geom_point()
-
-
-    #This code does the correlation guessing game! Nothign to change here
+    #This code does the correlation guessing game! Nothing to change here
     observeEvent(input$corr_submit, {
       close <- abs(input$corr_guess - sample_corr$corr_truth) <= .05
       if(close){
