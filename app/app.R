@@ -70,7 +70,7 @@ ui <- fluidPage(
       actionButton("corr_sample","Get a Sample!")
     ),
     mainPanel(
-      outputId = "corr_plot",
+      plotOutput(outputId = "corr_plot"),
       "Please select your variables, subset, and click the 'Get a Sample!' button.",
       conditionalPanel("input.corr_sample", #only show if a sample has been taken
                        h2("Guess the correlation!"),
@@ -195,7 +195,7 @@ server <- function(input, output, session) {
                       prob = subsetted_data$PWGTP/sum(subsetted_data$PWGTP))
       # ***You now need to update the sample_corr reactive value object***
       #the corr_data argument should be updated to be the subsetted_data[index,]
-      sample_corr$corr_data <- subsetted_data
+      sample_corr$corr_data <- subsetted_data[index, ]
       
       #the corr_truth argument should be updated to be the correlation between
       #the two variables selected. This can be found with this code:
